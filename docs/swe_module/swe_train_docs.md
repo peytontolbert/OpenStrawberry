@@ -49,7 +49,8 @@
 - **Diagrams**:
   - *Entity-Relationship Diagram (ERD)*: Illustrates the relationships between Policy Network, Value Network, Reward Model, State Sequence, and Trajectory.
 
-```erDiagram
+```mermaid
+erDiagram
     SOFTWARE_ENGINEERING_AGENT {
         string id
         string state
@@ -79,7 +80,8 @@
     TRAJECTORY ||--|| STATE_SEQUENCE : comprises
 ```
   - *Flowchart*: Depicts the flow of data and actions during the training loop.
-```flowchart TD
+```mermaid
+flowchart TD
     A[Start Training] --> B[Initialize Networks]
     B --> C[Load Training Data]
     C --> D{For Each Iteration}
