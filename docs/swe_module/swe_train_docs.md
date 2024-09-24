@@ -3,40 +3,6 @@
 
 # Software Engineering Training Script Documentation
 
-## 1. Module Information
-
-- **Module Name**: `swe_train.py`
-- **Purpose and Overview**:  
-  The `swe_train.py` script is designed to train policy and value networks using Proximal Policy Optimization (PPO) for software engineering tasks. It leverages PyTorch for model implementation, Transformers for tokenization, and integrates with custom modules to facilitate training, dataset management, and action execution.
-- **Key Responsibilities**:
-  - Initializes and manages training loops for policy and value networks.
-  - Handles data loading and preprocessing using the `SwoDataset`.
-  - Implements PPO for optimizing the policy and value networks.
-  - Manages logging and checkpointing of models.
-  - Executes actions based on the trained policy using the `SoftwareEngineeringAgent`.
-
-## 2. Components
-
-- **List of Components**:
-  - **Imports**: Handles necessary library and module imports.
-  - **Logging Setup**: Configures logging using `loguru`.
-  - **Device Configuration**: Sets up the computation device (CPU or GPU).
-  - **Checkpoint Functions**: Functions to save and load model checkpoints.
-  - **Train Function**: Core function that encapsulates the training logic.
-
-- **Component Descriptions**:
-  - **Imports**: Imports essential libraries such as PyTorch, Transformers, and custom modules like `swe_dataset` and `swe_actions`.
-  - **Logging Setup**: Utilizes `loguru` to log training progress and events to a file named `training.log`.
-  - **Device Configuration**: Automatically detects and assigns the available computational device (CUDA if available, else CPU).
-  - **Checkpoint Functions**: 
-    - `save_checkpoint`: Saves the current state of policy and value networks.
-    - `load_checkpoint`: Loads the state of policy and value networks from saved checkpoints.
-  - **Train Function**: Implements the training loop, including data loading, action selection, reward computation, policy and value updates, and checkpointing.
-
-- **Classes and Methods**:
-  - **`SoftwareEngineeringAgent`**: Represents the agent that interacts with the environment, executes actions, and updates state representations.
-  - **Training Function (`train`)**: Accepts various parameters to control the training process, including learning rates, batch sizes, and reward shaping factors.
-
 ## 3. Data Model
 
 - **Entities and Relationships**:
@@ -50,51 +16,54 @@
 - **Diagrams**:
   - *Entity-Relationship Diagram (ERD)*: Updated to include `SoftwareEngineeringAgent`.
   
-```mermaid
-erDiagram
-    SOFTWARE_ENGINEERING_AGENT {
-        string id
-        string state
-    }
-    TRANSFORMER_POLICY_NETWORK {
-        string model_name
-    }
-    TRANSFORMER_VALUE_NETWORK {
-        string model_name
-    }
-    TRANSFORMER_REWARD_MODEL {
-        string model_name
-    }
-    STATE_SEQUENCE {
-        int sequence_length
-    }
-    TRAJECTORY {
-        int episode_id
-        int reward
-    }
+  ```mermaid
+  erDiagram
+      SOFTWARE_ENGINEERING_AGENT {
+          string id
+          string state
+      }
+      TRANSFORMER_POLICY_NETWORK {
+          string model_name
+      }
+      TRANSFORMER_VALUE_NETWORK {
+          string model_name
+      }
+      TRANSFORMER_REWARD_MODEL {
+          string model_name
+      }
+      STATE_SEQUENCE {
+          int sequence_length
+      }
+      TRAJECTORY {
+          int episode_id
+          int reward
+      }
 
-    SOFTWARE_ENGINEERING_AGENT ||--o{ TRAJECTORY : creates
-    SOFTWARE_ENGINEERING_AGENT ||--o{ STATE_SEQUENCE : maintains
-    TRANSFORMER_POLICY_NETWORK ||--|| SOFTWARE_ENGINEERING_AGENT : controls
-    TRANSFORMER_VALUE_NETWORK ||--|| SOFTWARE_ENGINEERING_AGENT : evaluates
-    TRANSFORMER_REWARD_MODEL ||--|| SOFTWARE_ENGINEERING_AGENT : rewards
-    TRAJECTORY ||--|| STATE_SEQUENCE : comprises
-```
-  - *Flowchart*: Depicts the flow of data and actions during the training loop.
-```mermaid
-flowchart TD
-    A[Start Training] --> B[Initialize Networks]
-    B --> C[Load Training Data]
-    C --> D{For Each Iteration}
-    D --> E[Run Episodes]
-    E --> F[Collect Rewards and Trajectories]
-    F --> G[Update Policy and Value Networks using PPO]
-    G --> H{Save Checkpoint?}
-    H -- Yes --> I[Save Model Checkpoint]
-    H -- No --> D
-    I --> D
-    D --> J[End Training]
-```
+      SOFTWARE_ENGINEERING_AGENT ||--o{ TRAJECTORY : creates
+      SOFTWARE_ENGINEERING_AGENT ||--o{ STATE_SEQUENCE : maintains
+      TRANSFORMER_POLICY_NETWORK ||--|| SOFTWARE_ENGINEERING_AGENT : controls
+      TRANSFORMER_VALUE_NETWORK ||--|| SOFTWARE_ENGINEERING_AGENT : evaluates
+      TRANSFORMER_REWARD_MODEL ||--|| SOFTWARE_ENGINEERING_AGENT : rewards
+      TRAJECTORY ||--|| STATE_SEQUENCE : comprises
+  ```
+
+- *Flowcharts*:
+  - *Training Loop Flowchart*: Visual representation of the training process, including data loading, action selection, reward computation, and network updates.
+  
+  ```mermaid
+  flowchart TD
+      A[Start Training] --> B[Initialize Networks]
+      B --> C[Load Training Data]
+      C --> D{For Each Iteration}
+      D --> E[Run Episodes]
+      E --> F[Collect Rewards and Trajectories]
+      F --> G[Update Policy and Value Networks using PPO]
+      G --> H{Save Checkpoint?}
+      H -- Yes --> I[Save Model Checkpoint]
+      H -- No --> D
+      I --> D
+      D --> J[End Training]
+  ```
 
 ## 4. API Specifications
 
@@ -297,14 +266,10 @@ graph LR
     SweDataset[swe_dataset.py]
     SweActions[swe_actions.py]
     SoftwareAgent[software_agent.py]
-    QAgent[qagent module]
 
     SweTrain --> SweDataset
     SweTrain --> SweActions
     SweTrain --> SoftwareAgent
-    SweTrain --> QAgent
-    QAgent --> SweDataset
-    QAgent --> SweActions
 ```
 
   - *Thought Tree Diagram*: Depicts the thought tree data structure used to store and manage the sequence of thoughts or actions taken by the agent.
@@ -333,18 +298,10 @@ graph TB
     SweDataset[swe_dataset.py]
     SweActions[swe_actions.py]
     SoftwareAgent[software_agent.py]
-    QLearner[q_learner.py]
-    Attend[attend.py]
-    Mocks[mocks.py]
-    QRoboticTransformer[q_robotic_transformer.py]
 
     SweTrain --> SweDataset
     SweTrain --> SweActions
     SweTrain --> SoftwareAgent
-    SweTrain --> QLearner
-    QLearner --> Attend
-    QLearner --> QRoboticTransformer
-    QLearner --> Mocks
 ```
 ## 13. Inter-Module Documentation
 
@@ -352,7 +309,6 @@ graph TB
   - **`swe_dataset.py`**: For loading and preprocessing training data.
   - **`swe_actions.py`**: For defining and executing actions based on policy decisions.
   - **`software_agent.py`**: Represents the agent responsible for interacting with the environment and executing actions.
-  - **`qagent` Module**: Contains various components like `mocks.py`, `attend.py`, `q_learner.py`, and `q_robotic_transformer.py` that support the learning process.
 
 - **Interactions**:
   - **Data Flow**: `swe_train.py` uses `swe_dataset.py` to fetch training data and feeds it into the policy and value networks.
@@ -425,4 +381,4 @@ graph TB
 
 ---
 *Last Updated*: October 28, 2023  
-*Version*: 1.0.1
+*Version*: 1.0.2
