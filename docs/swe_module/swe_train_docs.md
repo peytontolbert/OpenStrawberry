@@ -45,10 +45,11 @@
   - **Reward Model (`TransformerRewardModel`)**: Predicts rewards for state-action pairs.
   - **State Sequence**: Represents the sequence of states encountered during training.
   - **Trajectory**: A collection of state-action-reward tuples collected during an episode.
+  - **SoftwareEngineeringAgent**: Interacts with the environment, executes actions, and updates the state.
 
 - **Diagrams**:
-  - *Entity-Relationship Diagram (ERD)*: Illustrates the relationships between Policy Network, Value Network, Reward Model, State Sequence, and Trajectory.
-
+  - *Entity-Relationship Diagram (ERD)*: Updated to include `SoftwareEngineeringAgent`.
+  
 ```mermaid
 erDiagram
     SOFTWARE_ENGINEERING_AGENT {
@@ -152,6 +153,7 @@ flowchart TD
   - **Modular Design**: Separates concerns by dividing functionality into distinct modules such as dataset handling, actions, and model architectures.
   - **Observer Pattern**: Utilized through logging to monitor training progress.
   - **Reinforcement Learning**: Implements PPO, a policy gradient method, for training the networks.
+  - **Agent Interaction**: `SoftwareEngineeringAgent` manages interactions with the environment, executing actions, and updating state representations without unnecessary tokenization.
 
 - **Integration Points**:
   - **Datasets**: Integrates with `swe_dataset.py` to load and preprocess training data.
@@ -277,22 +279,20 @@ graph TD
   - *Training Loop Flowchart*: Visual representation of the training process, including data loading, action selection, reward computation, and network updates.
   
 - **Sequence Diagrams**:
-  - *Action Execution Sequence*: Shows the interaction between the agent, tokenizer, and action executor during an action.
+  - *Action Execution Sequence*: Updated to remove tokenization of action text.
 ```mermaid
 sequenceDiagram
     participant Agent
-    participant Tokenizer
     participant ActionExecutor
 
-    Agent->>Tokenizer: Tokenize action text
-    Tokenizer-->>Agent: Return tokens
-    Agent->>ActionExecutor: Execute action based on tokens
+    Agent->>ActionExecutor: Execute action
     ActionExecutor-->>Agent: Action execution result
     Agent->>Agent: Update state based on result
 ```
 - **Component Diagrams**:
   - *Module Interaction Diagram*: Depicts how `swe_train.py` interacts with other modules like `swe_dataset.py` and `swe_actions.py`.
-```graph LR
+```mermaid
+graph LR
     SweTrain[swe_train.py]
     SweDataset[swe_dataset.py]
     SweActions[swe_actions.py]
@@ -356,7 +356,7 @@ graph TB
 
 - **Interactions**:
   - **Data Flow**: `swe_train.py` uses `swe_dataset.py` to fetch training data and feeds it into the policy and value networks.
-  - **Action Execution**: Based on the policy network's outputs, `swe_train.py` interacts with `swe_actions.py` and `software_agent.py` to execute corresponding actions.
+  - **Action Execution**: Based on the policy network's outputs, `swe_train.py` interacts with `swe_actions.py` and `SoftwareEngineeringAgent` to execute corresponding actions without unnecessary tokenization.
   
 - **Cross-References**:
   - Refer to `swe_dataset.md` for detailed documentation on data handling.
@@ -424,5 +424,5 @@ graph TB
   - Have the documentation reviewed by team members to ensure accuracy, completeness, and clarity.
 
 ---
-*Last Updated*: October 27, 2023  
-*Version*: 1.0.0
+*Last Updated*: October 28, 2023  
+*Version*: 1.0.1
