@@ -246,7 +246,8 @@
 
 - **Architecture Diagrams**:
   - *Neural Network Architecture*: Illustrates the structure of the policy and value networks.
-```graph TD
+```mermaid
+graph TD
     subgraph Policy Network
         P1[Input Layer]
         P2[Transformer Layers]
@@ -275,7 +276,8 @@
   
 - **Sequence Diagrams**:
   - *Action Execution Sequence*: Shows the interaction between the agent, tokenizer, and action executor during an action.
-```sequenceDiagram
+```mermaid
+sequenceDiagram
     participant Agent
     participant Tokenizer
     participant ActionExecutor
@@ -304,7 +306,8 @@
 ```
 
   - *Thought Tree Diagram*: Depicts the thought tree data structure used to store and manage the sequence of thoughts or actions taken by the agent.
-```graph TD
+```mermaid
+graph TD
     Root[Initial Thought]
     A[Thought 1]
     B[Thought 2]
@@ -322,7 +325,8 @@
 ```
 
 - *Component Interaction Diagram*: Depicts the interaction between different components of the system.
-```graph TB
+```mermaid
+graph TB
     SweTrain[swe_train.py]
     SweDataset[swe_dataset.py]
     SweActions[swe_actions.py]
