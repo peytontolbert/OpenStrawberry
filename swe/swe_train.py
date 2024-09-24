@@ -3,12 +3,13 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer  # Ensure this import exists
 from swe_dataset import SwoDataset
 from loguru import logger
 from open_strawberry_torch.model import TransformerPolicyNetwork, TransformerValueNetwork, TransformerRewardModel
 from open_strawberry_torch.train import ThoughtTree, monte_carlo_rollout, transition
 from software_agent import SoftwareEngineeringAgent
+from swe_actions import Context  # Import Context for action execution
 
 # Set up logging
 logger.add("training.log", rotation="500 MB")
@@ -35,7 +36,6 @@ def train(
     num_iterations: int = 1000,
     episodes_per_iteration: int = 10,
     data_path: str = '',
-    tokenizer_name: str = 'bert-base-uncased',
     max_depth: int = 5,
     sequence_length: int = 10,
     gamma: float = 0.99,
@@ -56,20 +56,10 @@ def train(
         policy_net (TransformerPolicyNetwork): The policy network.
         value_net (TransformerValueNetwork): The value network.
         reward_model (TransformerRewardModel): The reward model.
-        num_iterations (int): Number of training iterations.
-        episodes_per_iteration (int): Episodes per iteration.
-        max_depth (int): Maximum depth for Monte Carlo rollouts.
-        sequence_length (int): Maximum sequence length for the transformer.
-        gamma (float): Discount factor.
-        clip_epsilon (float): Clipping epsilon for PPO.
-        policy_lr (float): Learning rate for the policy optimizer.
-        value_lr (float): Learning rate for the value optimizer.
-        reward_shaping_factor (float): Factor to scale the shaped rewards.
-        reward_shaping_success (float): Reward adjustment for successful feedback.
-        reward_shaping_failure (float): Reward adjustment for failed feedback.
+        ... [other args]
     """
-    # Load tokenizer
-    tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+    # Initialize BERT tokenizer
+    tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')  # Ensure this uses BERT tokenizer
     
     # Load datasets
     train_loader, val_loader = SwoDataset.load_dataset(data_path, tokenizer, batch_size, max_length)
@@ -79,6 +69,10 @@ def train(
     )
     value_optimizer = optim.Adam(value_net.parameters(), lr=value_lr)
 
+    best_validation_score = float('-inf')
+    early_stopping_counter = 0
+    early_stopping_patience = 10  # Number of iterations to wait before stopping
+    
     for iteration in range(num_iterations):
         logger.info(
             f"Starting iteration {iteration + 1}/{num_iterations}"
@@ -105,10 +99,11 @@ def train(
                 src = state_sequence.unsqueeze(
                     1
                 )  # Shape: (sequence_length, 1, input_dim)
-                action_probs = policy_net(src)
-                m = Categorical(action_probs)
+                action_logits = policy_net(src)  # Get logits instead of probabilities
+                m = Categorical(action_logits)
                 actions = m.sample((5,))  # Generate multiple branches
                 rewards = []
+                log_probs = []  # Initialize list to store log_probs
 
                 for action in actions:
                     next_state = transition(
@@ -141,28 +136,56 @@ def train(
                         thought_tree.root, next_sequence, reward
                     )
 
+                    # Store the log probability of the action
+                    log_prob = m.log_prob(action)
+                    log_probs.append(log_prob.detach())
+
                 # Select the best action based on rewards
                 best_action_index = (
                     torch.tensor(rewards).argmax().item()
                 )
                 best_action = actions[best_action_index]
                 best_reward = rewards[best_action_index]
+                best_log_prob = log_probs[best_action_index]  # Retrieve stored log_prob
 
-                # **Start Edit: Remove Feedback Mechanism and Use Reward Model**
-                # Compute adjusted reward using the reward model
-                adjusted_reward = reward_model(state_sequence).item()
-                rewards[best_action_index] = adjusted_reward
-                # **End Edit**
-
-                # Log the selected action and reward
-                logger.debug(
-                    f"Selected action {best_action.item()} with reward {best_reward}"
-                )
-
-                # Store the experience
+                # **Start Edit: Convert Logits to Actions Using Tokenizer and Parsing Function**
+                # Decode the best action using the tokenizer
+                action_id = best_action.item()
+                action_text = tokenizer.decode([action_id], skip_special_tokens=True)
+                
+                # Map the action text to actionable commands
+                action_names = agent.map_response_to_actions(action_text)
+                
+                for action_name in action_names:
+                    # Create a Context object for the action
+                    context = Context(
+                        response="Training iteration action execution",
+                        project_directory=agent.project_directory,
+                        entities={}  # Populate with relevant entities if needed
+                    )
+                    # Execute the parsed action
+                    agent.execute_action(action_name, context)
+                    
+                    # {{ edit_start: Update state_sequence with the latest state from the agent after action execution }}
+                    # Fetch the updated state representation from the agent
+                    updated_state = agent.get_state_representation()
+                    
+                    # Tokenize the updated state
+                    updated_state_tokens = tokenizer.encode(updated_state, return_tensors='pt').to(device)
+                    
+                    # Update the state_sequence by appending the new state
+                    state_sequence = torch.cat([state_sequence, updated_state_tokens], dim=0)
+                    
+                    # Ensure the state_sequence does not exceed the maximum length
+                    if state_sequence.size(0) > sequence_length:
+                        state_sequence = state_sequence[-sequence_length:]
+                    # {{ edit_end }}
+                    
+                # **Start Edit: Store the experience with old_log_prob**
                 trajectory.append(
-                    (state_sequence.clone(), best_action, adjusted_reward)  # Updated reward
+                    (state_sequence.clone(), best_action, best_reward, best_log_prob)  # Updated reward
                 )
+                # **End Edit**
 
                 # Move to the next state sequence
                 next_state = transition(
@@ -178,7 +201,7 @@ def train(
             returns = []
             advantages = []
             Gt = 0
-            for state_seq_t, action_t, reward_t in reversed(
+            for state_seq_t, action_t, reward_t, _ in reversed(
                 trajectory
             ):
                 Gt = reward_shaping_factor * reward_t + gamma * Gt  # Modified reward calculation
@@ -196,17 +219,17 @@ def train(
             advantages_tensor = (
                 advantages_tensor - advantages_tensor.mean()
             ) / (advantages_tensor.std() + 1e-8)
-
+        
             # Update policy network using PPO
-            for i, (state_seq_t, action_t, _) in enumerate(
+            policy_losses = []  # Collect policy losses for averaging
+            for i, (state_seq_t, action_t, _, old_log_prob) in enumerate(
                 trajectory
             ):
                 # Expand dimensions to match (sequence_length, batch_size, input_dim)
                 src = state_seq_t.unsqueeze(1)
-                action_probs = policy_net(src)
-                m = Categorical(action_probs)
+                action_logits = policy_net(src)
+                m = Categorical(action_logits)
                 log_prob = m.log_prob(action_t)
-                old_log_prob = log_prob.detach()
                 ratio = torch.exp(log_prob - old_log_prob)
                 surr1 = ratio * advantages_tensor[i]
                 surr2 = (
@@ -216,15 +239,19 @@ def train(
                     * advantages_tensor[i]
                 )
                 policy_loss = -torch.min(surr1, surr2)
-
-                policy_optimizer.zero_grad()
-                policy_loss.backward()
-                policy_optimizer.step()
+                policy_losses.append(policy_loss)
 
                 # Log the policy loss
                 logger.debug(
                     f"Policy loss at step {i}: {policy_loss.item()}"
                 )
+        
+            # Aggregate policy loss and perform backpropagation
+            if policy_losses:
+                total_policy_loss = torch.stack(policy_losses).mean()
+                policy_optimizer.zero_grad()
+                total_policy_loss.backward()
+                policy_optimizer.step()
 
             # Update value network
             returns_tensor = (
@@ -234,7 +261,7 @@ def train(
             )
             # Prepare inputs for the value network
             value_inputs = torch.stack(
-                [s for s, _, _ in trajectory]
+                [s for s, _, _, _ in trajectory]
             ).transpose(0, 1)
             value_inputs = value_inputs.to(device)
             values = value_net(value_inputs)
@@ -250,7 +277,7 @@ def train(
         
         if (iteration + 1) % save_interval == 0:
             save_checkpoint(policy_net, value_net, iteration + 1)
-
+    
         logger.info(
             f"Completed iteration {iteration + 1}/{num_iterations}"
         )
