@@ -3,7 +3,7 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import AutoTokenizer
 
 class SwoDataset(Dataset):
-    def __init__(self, data_path, tokenizer, max_length=512):
+    def __init__(self, data_path, tokenizer, max_length=8192):
         """
         Initializes the dataset by loading the data from the specified path.
 
