@@ -7,22 +7,18 @@ from chat_with_ollama import ChatGPT
 from dataclasses import dataclass
 from typing import Dict, Any, List, Optional
 from abc import ABC, abstractmethod
-from swe_actions.file_operations import CreateFileAction, EditFileAction, AddFunctionAction, HandleCodeInsertionAction
-from swe_actions.git_operations import CreateBranchAction, MergeBranchAction, PushChangesAction, PullChangesAction, ResolveMergeConflictsAction
-from swe_actions.testing_quality import WriteTestsAction, RunTestsAction, AnalyzeTestCoverageAction, UpdateDependenciesAction
-from swe_actions.code_modification import RefactorCodeAction, FormatCodeAction, AnalyzeCodeQualityAction
-from swe_actions.dependency_management import ManageDependenciesAction
-from swe_actions.deployment import DockerizeApplicationAction, DeployApplicationAction, MonitorLogsAction, CommitChangesAction
-from swe_actions.issue_management import CreateIssueAction, AssignTaskAction, RevertChangesAction
-from swe_actions.documentation import GenerateDocsAction
-from swe_actions.code_execution import SafeExecuteCodeAction
-from swe_actions.text_generation import GenerateContentAction, CodeReviewAction
-@dataclass
-class Context:
-    response: str
-    project_directory: str
-    entities: Dict[str, Any]
-    # Add other shared resources as needed
+from sweactions.base import Action, Context
+from sweactions.file_operations import CreateFileAction, EditFileAction, AddFunctionAction, HandleCodeInsertionAction
+from sweactions.git_operations import CreateBranchAction, MergeBranchAction, PushChangesAction, PullChangesAction, ResolveMergeConflictsAction
+from sweactions.testing_quality import WriteTestsAction, RunTestsAction, AnalyzeTestCoverageAction
+from sweactions.code_modification import RefactorCodeAction, FormatCodeAction
+from sweactions.dependency_management import ManageDependenciesAction
+from sweactions.deployment import DockerizeApplicationAction, DeployApplicationAction, MonitorLogsAction
+from sweactions.issue_management import CreateIssueAction, AssignTaskAction
+from sweactions.documentation import GenerateDocsAction
+from sweactions.code_execution import SafeExecuteCodeAction
+from sweactions.text_generation import GenerateContentAction, CodeReviewAction
+from sweactions.feedback import RequestFeedbackAction
 
 
 class Action(ABC):
@@ -87,6 +83,7 @@ class ActionRegistry:
 def register_actions():
     registry = ActionRegistry()
     registry.register_action("create_file", CreateFileAction())
+    registry.register_action("request_feedback", RequestFeedbackAction())
     registry.register_action("generate_content", GenerateContentAction())
     registry.register_action("add_function", AddFunctionAction())
     registry.register_action("edit_file", EditFileAction())
@@ -101,7 +98,7 @@ def register_actions():
     registry.register_action("push_changes", PushChangesAction())
     registry.register_action("pull_changes", PullChangesAction())
     registry.register_action("resolve_merge_conflicts", ResolveMergeConflictsAction())
-    registry.register_action("code_review", CodeReviewAction())
+    registry.register_action("code_review", CodeReviewAction())  # Ensure only one registration
     registry.register_action("refactor_code", RefactorCodeAction())
     registry.register_action("analyze_code_quality", AnalyzeCodeQualityAction())
     registry.register_action("format_code", FormatCodeAction())

@@ -5,7 +5,7 @@ import json
 import logging
 from typing import List, Dict, Optional
 
-from swe import SoftwareEngineeringAgent
+from software_agent import SoftwareEngineeringAgent
 from open_strawberry_torch.model import TransformerPolicyNetwork as PolicyModel, TransformerRewardModel as RewardModel
 
 # Configure logging

@@ -4,9 +4,10 @@ import torch.nn.functional as F
 import torch
 import logging
 import json
-from typing import List, Dict, Callable, Optional
+from dataclasses import dataclass
+from typing import List, Dict, Callable, Optional, Any
 from transformers import AutoTokenizer, AutoModelForCausalLM
-from swe_actions import ActionRegistry, register_actions, Context
+from swe_actions import ActionRegistry, register_actions
 from open_strawberry_torch.model import (
     TransformerPolicyNetwork as PolicyModel, 
     TransformerRewardModel as RewardModel,
@@ -16,6 +17,13 @@ from open_strawberry_torch.train import ThoughtTree, monte_carlo_rollout
 
 # Define the threshold for executing actions
 SOME_THRESHOLD = 0.5  # Adjust this value as appropriate
+
+@dataclass
+class Context:
+    response: str
+    project_directory: str
+    entities: Dict[str, Any]
+    # Add other shared resources as needed
 
 class SoftwareEngineeringAgent:
     def __init__(
@@ -115,9 +123,40 @@ class SoftwareEngineeringAgent:
                         code_text = f.read()
                         code_texts.append(f"File: {file}\n{code_text}\n")
         combined_code = "\n".join(code_texts)
+        
+        # **Start Edit: Include Code Metrics**
+        code_metrics = self.calculate_code_metrics()
+        combined_code += f"\n# Code Metrics:\n{code_metrics}\n"
+        # **End Edit**
+        
         return combined_code
 
+    def calculate_code_metrics(self) -> str:
+        """
+        Calculates various code metrics for the current project.
 
+        Returns:
+            str: A string representation of code metrics.
+        """
+        metrics = {}
+        for root, _, files in os.walk(self.project_directory):
+            for file in files:
+                if file.endswith('.py'):
+                    file_path = os.path.join(root, file)
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        lines = f.readlines()
+                        metrics[file] = {
+                            'line_count': len(lines),
+                            'function_count': len([line for line in lines if line.strip().startswith('def ')]),
+                            'comment_count': len([line for line in lines if line.strip().startswith('#')])
+                        }
+        # Convert metrics to a formatted string
+        metrics_str = ""
+        for file, data in metrics.items():
+            metrics_str += f"File: {file}\n"
+            for key, value in data.items():
+                metrics_str += f"  {key}: {value}\n"
+        return metrics_str
 
     def read_code_files(self):
         """
@@ -167,7 +206,7 @@ class SoftwareEngineeringAgent:
             truncation=True,
             max_length=8192
         )
-        return inputs.input_ids.to(self.device)
+        return inputs['input_ids'].to(self.device)
 
 
     def detokenize(self, token_ids: torch.Tensor) -> str:
@@ -182,63 +221,20 @@ class SoftwareEngineeringAgent:
         """
         return self.tokenizer.decode(token_ids, skip_special_tokens=True)
 
-    def process_user_input(self, user_input: str):
-        """
-        Processes user input and updates the agent's state.
-
-        Args:
-            user_input (str): The user input.
-        """
-        # Update conversation context
-        self.context += f"User: {user_input}\n"
-        # Get current state representation
-        state_representation = self.get_state_representation()
-        prompt = self.context + state_representation + f"\nAgent:"
-        # Generate a response from the policy model
-        response = self.generate_response(prompt)
-        # Append the agent's response to the conversation context
-        self.context += f"{response}\n"
-        print(f"Agent: {response}")
-
-        # Map response to actions
-        actions = self.map_response_to_actions(response)
-
-        # **Start Edit: Handle Multiple Actions**
-        if isinstance(actions, list):
-            for action_name in actions:
-                execution_context = Context(
-                    response=response,
-                    project_directory=self.project_directory,
-                    agent=self,
-                    entities={}  # You can extract entities as needed
-                )
-                self.execute_action(action_name, execution_context)
-        else:
-            execution_context = Context(
-                response=response,
-                project_directory=self.project_directory,
-                entities={}  # You can extract entities as needed
-            )
-            self.execute_action(actions, execution_context)
-        # **End Edit**
-
-        # Update the agent's state if necessary
-        self.update_state()
-
     def map_response_to_actions(self, response: str) -> List[str]:
         """
-        Parses the agent's response to extract action commands.
+        Maps the model's response text to a list of actionable action names.
 
         Args:
-            response (str): The agent's generated response.
+            response (str): The response text generated by the model.
 
         Returns:
-            List[str]: A list of action names to execute.
+            List[str]: A list of action names to be executed.
         """
         actions = []
 
-        # Example parsing logic: look for action keywords in the response
-        action_keywords = {
+        # Define a list of all possible actions to ensure accurate mapping
+        possible_actions = {
             "create_file": ["create a file", "create file", "generate file"],
             "generate_content": ["generate content", "write content"],
             "add_function": ["add function", "implement function"],
@@ -249,15 +245,31 @@ class SoftwareEngineeringAgent:
             "generate_docs": ["generate docs", "create documentation"],
             "safe_execute_code": ["execute code", "run code"],
             "commit_changes": ["commit changes", "push to repository"],
+            "code_review": ["perform code review", "review code", "conduct code review"],  # Added synonyms
+            # Add more synonyms as needed
         }
 
-        for action_name, keywords in action_keywords.items():
+        # Utilize regex for more flexible matching
+        import re
+
+        for action_name, keywords in possible_actions.items():
             for keyword in keywords:
-                if keyword in response.lower():
+                pattern = re.compile(r'\b' + re.escape(keyword) + r'\b', re.IGNORECASE)
+                if pattern.search(response):
                     actions.append(action_name)
                     break  # Avoid adding the same action multiple times
 
-        return actions
+        # **Start Edit: Handle Exact Action Mapping from Model Output**
+        # If the model outputs exact action names, map them directly
+        exact_actions = [
+            action.strip() for action in response.split(",") 
+            if action.strip() in possible_actions
+        ]
+        if exact_actions:
+            actions.extend(exact_actions)
+        # **End Edit**
+
+        return list(set(actions))  # Remove duplicates
     
     def execute_action(self, action_name: str, context: Context):
         """
@@ -269,72 +281,24 @@ class SoftwareEngineeringAgent:
         """
         action = self.action_registry.get_action(action_name)
         if action:
-            action.execute(context.response, context)
-            self.logger.info(f"Executed action: {action_name}")
-            self.action_history.append(action_name)  # Track executed action
-            
-            # Example Usage of ValueModel
-            state_representation = self.get_state_representation()
-            state_tensor = self.tokenize(state_representation)
-            state_value = self.value_model(state_tensor)
-            self.logger.info(f"State Value after action '{action_name}': {state_value.item()}")
+            try:
+                action.execute(context.response, context)
+                self.logger.info(f"Executed action: {action_name}")
+                self.action_history.append(action_name)  # Track executed action
+            except Exception as e:
+                self.logger.error(f"Error executing action '{action_name}': {e}")
+                # Optionally, notify the user or take corrective measures
+                print(f"An error occurred while executing '{action_name}': {e}")
         else:
+            # **Start Edit: Handle Unknown Actions Gracefully**
             self.logger.warning(f"Action not found in registry: {action_name}")
+            # Optionally, notify the user or take corrective measures
+            print(f"Warning: The action '{action_name}' is not recognized and cannot be executed.")
+            # **End Edit**
     
-    def sample_sequence(
-        self,
-        context: List[int],
-        max_length: int = 50
-    ) -> List[int]:
-        """
-        Samples a continuation from the policy model given the context.
-
-        Args:
-            context (List[int]): The context sequence (list of token IDs).
-            max_length (int): Maximum length of the continuation.
-
-        Returns:
-            List[int]: Sampled continuation tokens.
-        """
-        generated = context.copy()
-        with torch.no_grad():
-            for _ in range(max_length):
-                input_ids = torch.tensor([generated]).to(self.device)
-                logits = self.policy_model(input_ids)
-                next_token_logits = logits[0, -1, :]
-                probabilities = torch.softmax(next_token_logits, dim=-1)
-                next_token_id = torch.multinomial(probabilities, num_samples=1).item()
-                generated.append(next_token_id)
-                if next_token_id == self.eos_token_id:
-                    break
-        continuation = generated[len(context):]
-        return continuation
-
-    def compute_reward(self, sequence: List[int]) -> float:
-        """
-        Computes the reward of a sequence using the reward model.
-
-        Args:
-            sequence (List[int]): The sequence of token IDs.
-
-        Returns:
-            float: Reward value.
-        """
-        with torch.no_grad():
-            input_ids = torch.tensor([sequence]).to(self.device)
-            reward = self.reward_model(input_ids)
-            return reward.item()
-
     def get_user_feedback(self):
         feedback = input("Was this action helpful? (yes/no): ").strip().lower()
         return feedback == 'yes'
-
-    def log_unsuccessful_interaction(self, user_input, response):
-        with open('unsuccessful_interactions.log', 'a', encoding='utf-8') as f:
-            f.write(f"User Input: {user_input}\n")
-            f.write(f"Agent Response: {response}\n")
-            f.write("-----\n")
-        self.logger.info("Logged unsuccessful interaction for future training.")
 
     def update_state(self):
         """
@@ -347,6 +311,11 @@ class SoftwareEngineeringAgent:
         # Update the conversation context with action history
         actions_str = ", ".join(self.action_history)
         self.context += f"Actions taken: {actions_str}\n"
+        
+        # **Start Edit: Incorporate User Feedback**
+        feedback = self.get_user_feedback()
+        self.context += f"User Feedback: {'Positive' if feedback else 'Negative'}\n"
+        # **End Edit**
         
         # Persist the current state to a JSON file
         state = {
