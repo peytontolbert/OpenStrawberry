@@ -1,4 +1,4 @@
-from swe_actions import Action, Context
+from swe.swe_actions import Action, Context
 from chat_with_ollama import ChatGPT
 import logging
 import os

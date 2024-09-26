@@ -1,4 +1,4 @@
-from swe_actions import Action, Context
+from swe.swe_actions import Action, Context
 import os
 import logging
 import subprocess
@@ -138,4 +138,3 @@ class RevertChangesAction(Action):
             error_msg = f"Failed to revert changes: {e}"
             print(error_msg)
             logging.error(error_msg)
-

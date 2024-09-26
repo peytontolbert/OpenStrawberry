@@ -1,6 +1,6 @@
 import os
 import logging
-from swe_actions import Action, Context
+from swe.swe_actions import Action, Context
 import subprocess
 class DockerizeApplicationAction(Action):
     def execute(self, context: Context):

@@ -1,5 +1,5 @@
 import subprocess
-from swe_actions import Action, Context
+from swe.swe_actions import Action, Context
 
 class GenerateDocsAction(Action):
     def execute(self, context: Context):
