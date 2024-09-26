@@ -1,5 +1,5 @@
 import os
-from swe_actions import Action, Context
+from swe.swe_actions import Action, Context
 
 
 class SafeExecuteCodeAction(Action):

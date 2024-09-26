@@ -9,7 +9,7 @@ from typing import Dict, Any, List, Optional
 from abc import ABC, abstractmethod
 from sweactions.base import Action, Context
 from sweactions.file_operations import CreateFileAction, EditFileAction, AddFunctionAction, HandleCodeInsertionAction
-from sweactions.git_operations import CreateBranchAction, MergeBranchAction, PushChangesAction, PullChangesAction, ResolveMergeConflictsAction
+from sweactions.git_operations import CreateBranchAction, MergeBranchAction, PushChangesAction, PullChangesAction, ResolveMergeConflictsAction, CommitChangesAction
 from sweactions.testing_quality import WriteTestsAction, RunTestsAction, AnalyzeTestCoverageAction
 from sweactions.code_modification import RefactorCodeAction, FormatCodeAction
 from sweactions.dependency_management import ManageDependenciesAction
@@ -100,7 +100,6 @@ def register_actions():
     registry.register_action("resolve_merge_conflicts", ResolveMergeConflictsAction())
     registry.register_action("code_review", CodeReviewAction())  # Ensure only one registration
     registry.register_action("refactor_code", RefactorCodeAction())
-    registry.register_action("analyze_code_quality", AnalyzeCodeQualityAction())
     registry.register_action("format_code", FormatCodeAction())
     registry.register_action("manage_dependencies", ManageDependenciesAction())
     registry.register_action("dockerize_application", DockerizeApplicationAction())
@@ -108,9 +107,7 @@ def register_actions():
     registry.register_action("monitor_logs", MonitorLogsAction())
     registry.register_action("create_issue", CreateIssueAction())
     registry.register_action("assign_task", AssignTaskAction())
-    registry.register_action("revert_changes", RevertChangesAction())
     registry.register_action("analyze_test_coverage", AnalyzeTestCoverageAction())
-    registry.register_action("update_dependencies", UpdateDependenciesAction())
     return registry
 
 

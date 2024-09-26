@@ -1,6 +1,6 @@
 import os
 import logging
-from swe_actions import Action, Context
+from swe.swe_actions import Action, Context
 
 class CreateIssueAction(Action):
     def execute(self, context: Context):

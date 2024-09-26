@@ -1,6 +1,6 @@
 import subprocess
 import logging
-from swe_actions import Action, Context
+from swe.swe_actions import Action, Context
 
 class ManageDependenciesAction(Action):
     def execute(self, context: Context):

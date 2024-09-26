@@ -1,5 +1,35 @@
 # Monte Carlo Rollout Documentation
+```mermaid
+flowchart TD
+    Start[Start Monte Carlo Search] --> Selection{Select Node}
+    Selection -->|Fully Expanded| Simulation[Run Simulation]
+    Selection -->|Not Fully Expanded| Expansion[Expand Node]
+    Expansion --> Simulation
+    Simulation --> Backpropagation[Backpropagate Results]
+    Backpropagation --> Selection
+    Backpropagation --> Check{End Condition?}
+    Check -- Yes --> End[End Search]
+    Check -- No --> Selection
+```
 
+with integration:
+```mermaid
+flowchart TD
+    Start[Start Monte Carlo Search] --> Selection{Select Node}
+    Selection -->|Fully Expanded| Simulation[Run Monte Carlo Rollout]
+    Selection -->|Not Fully Expanded| Expansion[Expand Node in ThoughtTree]
+    Expansion --> Simulation
+    Simulation --> Evaluate[Evaluate Reward with Reward Model]
+    Evaluate --> Update[Update Trajectory and ThoughtTree]
+    Update --> Backpropagation[Backpropagate Rewards]
+    Backpropagation --> Selection
+    Backpropagation --> Check{End Condition?}
+    Check -- Yes --> End[End Search]
+    Check -- No --> Selection
+
+    style Start fill:#f9f,stroke:#333,stroke-width:2px
+    style End fill:#f96,stroke:#333,stroke-width:2px
+```
 ## 1. Module Overview
 - **Component Name:** Monte Carlo Rollout
 - **Purpose:** Simulates future state-action-reward trajectories to inform policy updates using the policy network.
